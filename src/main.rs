@@ -4,19 +4,37 @@ extern crate lazy_static;
 extern crate actix;
 extern crate actix_web;
 extern crate env_logger;
+extern crate serde_json;
+extern crate futures;
+
+#[macro_use]
+extern crate serde_derive;
+
+#[macro_use]
+extern crate json;
 use actix_web::http::{header, Method, StatusCode};
 use actix_web::middleware::session::{self, RequestSession};
 use actix_web::{
-    error, fs, middleware, pred, server, App, Error, HttpRequest, HttpResponse, Path, Result
+    error, fs, middleware, pred, server, App, Error, HttpRequest, HttpResponse, Path, Result, Json, HttpMessage, AsyncResponder
 };
+use futures::{Future, Stream};
 
+use serde_json::{from_str, Value};
+use json::JsonValue;
 use std::sync::Mutex;
 use std::collections::HashMap;
 use std::{env, io};
 
+#[derive(Debug, Serialize, Deserialize)]
+struct MyObj {
+        name: String,
+        number: i32,
+}
+
+const MAX_SIZE: usize = 262_144; // max payload size is 256k
+
 lazy_static! {
     static ref SERVERS: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
-//    let mut servers = HashMap::new();
 }
 
 fn add_server(addr: String, name: String) {
@@ -30,7 +48,67 @@ fn get_servers() -> HashMap<String, String> {
 fn make_json_string_of_servers() -> String {
    let server_map = get_servers();
    let mut server_json_string: String = "\"servers\": {".to_owned(); 
+   let i = 0;
+   for (addr, name) in &server_map {
+       server_json_string.push('"');
+       server_json_string.push_str(addr);
+       server_json_string.push_str("\":\"");
+       server_json_string.push_str(name);
+       server_json_string.push('"');
+       if(i<server_map.len()-1) {
+           server_json_string.push(',');
+       }
+   }
+   server_json_string.push('}');
+
+   //println!("{}", server_json_string);
    server_json_string
+}
+
+/// This handler manually load request payload and parse json-rust
+fn json_endpoint(
+    req: &HttpRequest,
+) -> Box<Future<Item = HttpResponse, Error = Error>> {
+    req.payload()
+        .concat2()
+        .from_err()
+        .and_then(|body| {
+            // body is loaded, now we can deserialize json-rust
+            let result = json::parse(std::str::from_utf8(&body).unwrap()); // return Result
+            let injson: JsonValue = match result {
+                Ok(v) => v,
+                Err(e) => object!{"err" => e.to_string() },
+            };
+            handleJson(&injson);
+            Ok(HttpResponse::Ok()
+                .content_type("application/json")
+                .body("thanks!"))
+        })
+        .responder()
+}
+
+fn handleJson(json: &JsonValue) {
+    let json_string = json.dump();
+    let json_value: Value = serde_json::from_str(&json_string).unwrap();
+    let add_server_json_object = json_value.get("addserver").unwrap();
+    //let add_server_string = add_server_json_object.dump();
+    println!("json: {}", json_string);
+
+    println!("json2: {}", add_server_json_object.as_str().unwrap());
+}
+
+fn json_endpoint_old(req: &HttpRequest) -> HttpResponse {
+    println!("got json request");
+    let connection_info = req.connection_info();
+    let remote_host_addr =connection_info.remote();
+    let address = remote_host_addr.unwrap();
+    let address_split: Vec<_> = address.split(':').collect();
+    let address = address_split[0];
+    println!("adress: {}", address);
+
+    HttpResponse::Ok()
+        .content_type("text/json")
+        .body("thanks")
 }
 
 fn welcome(req: &HttpRequest) -> Result<HttpResponse> {
@@ -76,6 +154,7 @@ fn main() {
     let sys = actix::System::new("server-manager-rust");
 
     add_server(String::from("8:8:8:8"), String::from("dummy server"));
+    make_json_string_of_servers();
 
     let addr = server::new(
         || App::new()
@@ -86,6 +165,8 @@ fn main() {
             //.resource("", |r| r.method(Method::GET).f(index))
             .resource("", |r| r.f(index))
             .resource("/", |r| r.f(index))
+
+            .resource("/json", |r| r.method(Method::POST).f(json_endpoint))
             
             .resource("/welcome", |r| r.f(welcome))
             .resource("/user/{name}", |r| r.method(Method::GET).f(with_param))
