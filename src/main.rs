@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate lazy_static;
+
 extern crate actix;
 extern crate actix_web;
 extern crate env_logger;
@@ -7,7 +10,28 @@ use actix_web::{
     error, fs, middleware, pred, server, App, Error, HttpRequest, HttpResponse, Path, Result
 };
 
+use std::sync::Mutex;
+use std::collections::HashMap;
 use std::{env, io};
+
+lazy_static! {
+    static ref SERVERS: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
+//    let mut servers = HashMap::new();
+}
+
+fn add_server(addr: String, name: String) {
+   SERVERS.lock().unwrap().insert(addr, name);
+}
+
+fn get_servers() -> HashMap<String, String> {
+   SERVERS.lock().unwrap().clone()
+}
+
+fn make_json_string_of_servers() -> String {
+   let server_map = get_servers();
+   let mut server_json_string: String = "\"servers\": {".to_owned(); 
+   server_json_string
+}
 
 fn welcome(req: &HttpRequest) -> Result<HttpResponse> {
     println!("{:?}", req);
@@ -51,6 +75,8 @@ fn main() {
     env_logger::init();
     let sys = actix::System::new("server-manager-rust");
 
+    add_server(String::from("8:8:8:8"), String::from("dummy server"));
+
     let addr = server::new(
         || App::new()
             //enable logger
@@ -62,7 +88,6 @@ fn main() {
             .resource("/", |r| r.f(index))
             
             .resource("/welcome", |r| r.f(welcome))
-
             .resource("/user/{name}", |r| r.method(Method::GET).f(with_param))
 
             .default_resource(|r| {
