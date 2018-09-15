@@ -1,0 +1,11 @@
+[package]
+name = "server-manager-rust"
+version = "0.1.0"
+authors = ["Simen <simen.s.russnes@gmail.com>"]
+
+[dependencies]
+actix = "0.7"
+actix-web = "0.7"
+
+futures = "0.1"
+env_logger = "0.5"
