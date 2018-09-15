@@ -48,7 +48,7 @@ fn get_servers() -> HashMap<String, String> {
 fn make_json_string_of_servers() -> String {
    let server_map = get_servers();
    let mut server_json_string: String = "\"servers\": {".to_owned(); 
-   let i = 0;
+   let mut i = 0;
    for (addr, name) in &server_map {
        server_json_string.push('"');
        server_json_string.push_str(addr);
@@ -58,7 +58,9 @@ fn make_json_string_of_servers() -> String {
        if(i<server_map.len()-1) {
            server_json_string.push(',');
        }
+       i = i + 1;
    }
+   println!("{}", server_map.len());
    server_json_string.push('}');
 
    //println!("{}", server_json_string);
@@ -69,6 +71,7 @@ fn make_json_string_of_servers() -> String {
 fn json_endpoint(
     req: &HttpRequest,
 ) -> Box<Future<Item = HttpResponse, Error = Error>> {
+    let address = parse_address_from_request(&req);
     req.payload()
         .concat2()
         .from_err()
@@ -79,8 +82,10 @@ fn json_endpoint(
                 Ok(v) => v,
                 Err(e) => object!{"err" => e.to_string() },
             };
-            let server_name = handleJson(&injson);
+            let server_name = parse_server_name_from_json(&injson);
             println!("server name {}", server_name);
+
+            add_server(address, server_name);
             Ok(HttpResponse::Ok()
                 .content_type("application/json")
                 .body("thanks!"))
@@ -88,7 +93,7 @@ fn json_endpoint(
         .responder()
 }
 
-fn handleJson(json: &JsonValue) -> String {
+fn parse_server_name_from_json(json: &JsonValue) -> String {
     let json_string = json.dump();
     let json_value: Value = serde_json::from_str(&json_string).unwrap();
     let add_server_json_object: &Value = json_value.get("addserver").unwrap();
@@ -96,6 +101,16 @@ fn handleJson(json: &JsonValue) -> String {
     println!("json2: {}", add_server_json_object);
     let name = String::from(add_server_json_object.get("name").unwrap().as_str().unwrap());
     name
+}
+
+fn parse_address_from_request(req: &HttpRequest) -> String {
+    let connection_info = req.connection_info();
+    let remote_host_addr = connection_info.remote();
+    let address = remote_host_addr.unwrap();
+    let address_split: Vec<_> = address.split(':').collect();
+    let address = address_split[0];
+    println!("adress: {}", address);
+    String::from(address)
 }
 
 fn json_endpoint_old(req: &HttpRequest) -> HttpResponse {
@@ -143,9 +158,10 @@ fn p404(req: &HttpRequest) -> Result<fs::NamedFile> {
 }
 
 fn index(req: &HttpRequest) -> HttpResponse {
+    let servers_string: String = make_json_string_of_servers();
     HttpResponse::Ok()
         .content_type("text/plain")
-        .body("nice price")
+        .body(servers_string)
 }
 
 fn main() {
