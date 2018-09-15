@@ -92,12 +92,27 @@ fn json_endpoint(
             if(_error) {
                 response_string = injson.dump();
             } else {
-                let server_name_json: Value = parse_server_name_from_json(&injson);
-                println!("server name {}", server_name_json);
-
-
-                //add_server(address, server_name);
-                response_string = String::from("thanks!");
+                let server_name_json_with_possible_error: Value = parse_server_name_from_json(&injson);
+                let server_name_json = server_name_json_with_possible_error.get("name");
+                let mut was_ok = true;
+                let server_name_json : &Value = match server_name_json {
+                    Some(v) => v,
+                    None => {
+                        was_ok = false;
+                        &server_name_json_with_possible_error
+                        }
+                };
+                if(was_ok) {
+                    response_string = String::from("thanks for the server!");
+                    if(server_name_json.is_string()) {
+                        add_server(address, server_name_json.to_string())
+                    } else {
+                        let json_error_name: Value = serde_json::from_str("{\"err\":\"name is not string\"}").unwrap();
+                        response_string = json_error_name.to_string();
+                    }
+                } else {
+                    response_string = server_name_json_with_possible_error.to_string();
+                }
             }
 
             Ok(HttpResponse::Ok()
@@ -129,7 +144,7 @@ fn parse_server_name_from_json(json: &JsonValue) -> Value {
     if(!error) {
         let name_json = add_server_json_object.get("name");
         result_json = match name_json {
-            Some(v) => v,
+            Some(v) => add_server_json_object,
             None => {
                 error2 = true;
                 &json_error_name
