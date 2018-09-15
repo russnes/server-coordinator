@@ -79,7 +79,8 @@ fn json_endpoint(
                 Ok(v) => v,
                 Err(e) => object!{"err" => e.to_string() },
             };
-            handleJson(&injson);
+            let server_name = handleJson(&injson);
+            println!("server name {}", server_name);
             Ok(HttpResponse::Ok()
                 .content_type("application/json")
                 .body("thanks!"))
@@ -87,14 +88,14 @@ fn json_endpoint(
         .responder()
 }
 
-fn handleJson(json: &JsonValue) {
+fn handleJson(json: &JsonValue) -> String {
     let json_string = json.dump();
     let json_value: Value = serde_json::from_str(&json_string).unwrap();
-    let add_server_json_object = json_value.get("addserver").unwrap();
-    //let add_server_string = add_server_json_object.dump();
+    let add_server_json_object: &Value = json_value.get("addserver").unwrap();
     println!("json: {}", json_string);
-
-    println!("json2: {}", add_server_json_object.as_str().unwrap());
+    println!("json2: {}", add_server_json_object);
+    let name = String::from(add_server_json_object.get("name").unwrap().as_str().unwrap());
+    name
 }
 
 fn json_endpoint_old(req: &HttpRequest) -> HttpResponse {
