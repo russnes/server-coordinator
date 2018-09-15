@@ -56,7 +56,10 @@ fn main() {
             //enable logger
             .middleware(middleware::Logger::default())
 
-            .resource("/", |r| r.method(Method::GET).f(index))
+
+            //.resource("", |r| r.method(Method::GET).f(index))
+            .resource("", |r| r.f(index))
+            .resource("/", |r| r.f(index))
             
             .resource("/welcome", |r| r.f(welcome))
 
@@ -67,8 +70,8 @@ fn main() {
                 r.method(Method::GET).f(p404);
 
                 // all requests that are not GET
-                r.route().filter(pred::Not(pred::Get())).f(
-                    |req| HttpResponse::MethodNotAllowed());
+                //r.route().filter(pred::Not(pred::Get())).f(
+                //    |req| HttpResponse::MethodNotAllowed());
             }))
     .bind("127.0.0.1:8080").expect("Can not bind to 127.0.0.1:8080")
     .shutdown_timeout(0)
