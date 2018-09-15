@@ -78,29 +78,66 @@ fn json_endpoint(
         .and_then(|body| {
             // body is loaded, now we can deserialize json-rust
             let result = json::parse(std::str::from_utf8(&body).unwrap()); // return Result
+            let mut _error = false;
             let injson: JsonValue = match result {
                 Ok(v) => v,
-                Err(e) => object!{"err" => e.to_string() },
+                Err(e) => {
+                _error = true;
+                object!{"err" => e.to_string()
+                } },
             };
-            let server_name = parse_server_name_from_json(&injson);
-            println!("server name {}", server_name);
 
-            add_server(address, server_name);
+            let mut response_string: String;
+
+            if(_error) {
+                response_string = injson.dump();
+            } else {
+                let server_name_json: Value = parse_server_name_from_json(&injson);
+                println!("server name {}", server_name_json);
+
+
+                //add_server(address, server_name);
+                response_string = String::from("thanks!");
+            }
+
             Ok(HttpResponse::Ok()
                 .content_type("application/json")
-                .body("thanks!"))
-        })
+                .body(response_string))
+            })
         .responder()
 }
 
-fn parse_server_name_from_json(json: &JsonValue) -> String {
+fn parse_server_name_from_json(json: &JsonValue) -> Value {
     let json_string = json.dump();
     let json_value: Value = serde_json::from_str(&json_string).unwrap();
-    let add_server_json_object: &Value = json_value.get("addserver").unwrap();
-    println!("json: {}", json_string);
-    println!("json2: {}", add_server_json_object);
-    let name = String::from(add_server_json_object.get("name").unwrap().as_str().unwrap());
-    name
+    let json_error_addserver: Value = serde_json::from_str("{\"err\":\"missing addserver\"}").unwrap();
+    let json_error_name: Value = serde_json::from_str("{\"err\":\"missing name\"}").unwrap();
+
+    let add_server_json_object = json_value.get("addserver");
+
+    let mut error = false;
+    let add_server_json_object: &Value = match &add_server_json_object {
+        Some(v) => v,
+        None => {
+            error = true;
+            &json_error_addserver
+        },
+    };
+
+    let mut result_json : &Value = add_server_json_object;
+    let mut error2 = false;
+    if(!error) {
+        let name_json = add_server_json_object.get("name");
+        result_json = match name_json {
+            Some(v) => v,
+            None => {
+                error2 = true;
+                &json_error_name
+                }
+        };
+    }
+    let result_json: Value = result_json.clone();
+    result_json
 }
 
 fn parse_address_from_request(req: &HttpRequest) -> String {
@@ -111,20 +148,6 @@ fn parse_address_from_request(req: &HttpRequest) -> String {
     let address = address_split[0];
     println!("adress: {}", address);
     String::from(address)
-}
-
-fn json_endpoint_old(req: &HttpRequest) -> HttpResponse {
-    println!("got json request");
-    let connection_info = req.connection_info();
-    let remote_host_addr =connection_info.remote();
-    let address = remote_host_addr.unwrap();
-    let address_split: Vec<_> = address.split(':').collect();
-    let address = address_split[0];
-    println!("adress: {}", address);
-
-    HttpResponse::Ok()
-        .content_type("text/json")
-        .body("thanks")
 }
 
 fn welcome(req: &HttpRequest) -> Result<HttpResponse> {
