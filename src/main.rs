@@ -46,7 +46,7 @@ fn clear_servers() {
 
 fn make_json_string_of_servers() -> String {
    let server_map = get_servers();
-   let mut server_json_string: String = "\"servers\": {".to_owned(); 
+   let mut server_json_string: String = "\"servers\": {".to_owned();
    let mut i = 0;
    for (addr, name) in &server_map {
        server_json_string.push('"');
@@ -181,9 +181,15 @@ fn p404(req: &HttpRequest) -> Result<fs::NamedFile> {
 
 fn index(req: &HttpRequest) -> HttpResponse {
     let servers_string: String = make_json_string_of_servers();
+    let address = parse_address_from_request(&req);
+    let mut response_string = "{\"yourip\":\"".to_owned();
+    response_string.push_str(&address);
+    response_string.push_str("\",");
+    response_string.push_str(&servers_string);
+    response_string.push('}');
     HttpResponse::Ok()
         .content_type("application/json")
-        .body(servers_string)
+        .body(response_string)
 }
 
 fn main() {
