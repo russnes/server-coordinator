@@ -12,34 +12,25 @@ extern crate serde_derive;
 
 #[macro_use]
 extern crate json;
-use actix_web::http::{header, Method, StatusCode};
-use actix_web::middleware::session::{self, RequestSession};
+use actix_web::http::{Method, StatusCode};
 use actix_web::{
-    error, fs, middleware, pred, server, App, Error, HttpRequest, HttpResponse, Path, Result, Json, HttpMessage, AsyncResponder
+    fs, middleware, server, App, Error, HttpRequest, HttpResponse, Result, HttpMessage, AsyncResponder
 };
-use futures::{Future, Stream, Sink};
-//use futures::sync::mpsc::{Sender, channel};
+use futures::{Future, Stream};
 
-use std::sync::mpsc::{Sender, Receiver, channel};
-
-use serde_json::{from_str, Value};
+use serde_json::Value;
 use json::JsonValue;
 use std::sync::Mutex;
 use std::collections::HashMap;
-use std::{env, io, thread, time};
+use std::{env, thread, time};
 
-use std::io::BufRead;
-use std::io::prelude::*;
 use std::net::{TcpStream, Shutdown};
-use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct MyObj {
         name: String,
         number: i32,
 }
-
-const MAX_SIZE: usize = 262_144; // max payload size is 256k
 
 lazy_static! {
     static ref SERVERS: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
@@ -56,7 +47,6 @@ fn get_servers() -> HashMap<String, String> {
 
 fn clear_servers() {
     SERVERS.lock().unwrap().clear();
-    println!("clearing servers!");
 }
 
 fn make_json_string_of_servers() -> String {
@@ -69,7 +59,7 @@ fn make_json_string_of_servers() -> String {
        server_json_string.push_str("\":\"");
        server_json_string.push_str(name);
        server_json_string.push('"');
-       if(i<server_map.len()-1) {
+       if i<server_map.len()-1 {
            server_json_string.push(',');
        }
        i = i + 1;
@@ -100,7 +90,7 @@ fn json_endpoint(
 
             let mut response_string: String;
 
-            if(_error) {
+            if _error {
                 response_string = injson.dump();
             } else {
                 let server_name_json_with_possible_error: Value = parse_server_name_from_json(&injson);
@@ -113,11 +103,11 @@ fn json_endpoint(
                         &server_name_json_with_possible_error
                         }
                 };
-                if(was_ok) {
+                if was_ok {
                     response_string = String::from("thanks for the server!");
-                    if(server_name_json.is_string()) {
+                    if server_name_json.is_string() {
                         let connection_result = test_connection(&address);
-                        if(connection_result) {
+                        if connection_result {
                             add_server(address, server_name_json.to_string())
                         } else {
                             let json_error_name: Value = serde_json::from_str("{\"err\":\"can't connect\"}").unwrap();
@@ -169,15 +159,11 @@ fn parse_server_name_from_json(json: &JsonValue) -> Value {
     };
 
     let mut result_json : &Value = add_server_json_object;
-    let mut error2 = false;
-    if(!error) {
+    if !error {
         let name_json = add_server_json_object.get("name");
         result_json = match name_json {
             Some(v) => add_server_json_object,
-            None => {
-                error2 = true;
-                &json_error_name
-                }
+            None => &json_error_name
         };
     }
     let result_json: Value = result_json.clone();
@@ -192,32 +178,6 @@ fn parse_address_from_request(req: &HttpRequest) -> String {
     let address = address_split[0];
     println!("adress: {}", address);
     String::from(address)
-}
-
-fn welcome(req: &HttpRequest) -> Result<HttpResponse> {
-    println!("{:?}", req);
-
-    // session
-    let mut counter = 1;
-    if let Some(count) = req.session().get::<i32>("counter")? {
-        println!("SESSION value: {}", count);
-        counter = count + 1;
-        req.session().set("counter", counter)?;
-    } else {
-        req.session().set("counter", counter)?;
-    }
-
-    Ok(HttpResponse::build(StatusCode::OK)
-       .content_type("text/html; charset=utf-8")
-       .body(include_str!("../static/welcome.html")))
-}
-
-fn with_param(req: &HttpRequest) -> HttpResponse {
-    println!("{:?}", req);
-
-    HttpResponse::Ok()
-        .content_type("text/plain")
-        .body(format!("Hello {}!", req.match_info().get("name").unwrap()))
 }
 
 fn p404(req: &HttpRequest) -> Result<fs::NamedFile> {
@@ -238,30 +198,20 @@ fn main() {
     let sys = actix::System::new("server-manager-rust");
 
     add_server(String::from("8:8:8:8"), String::from("dummy server"));
-    make_json_string_of_servers();
 
-    let addr = server::new(
+    server::new(
         || App::new()
             //enable logger
             .middleware(middleware::Logger::default())
 
-
-            //.resource("", |r| r.method(Method::GET).f(index))
             .resource("", |r| r.f(index))
             .resource("/", |r| r.f(index))
 
             .resource("/json", |r| r.method(Method::POST).f(json_endpoint))
-            
-            //.resource("/welcome", |r| r.f(welcome))
-            //.resource("/user/{name}", |r| r.method(Method::GET).f(with_param))
 
             .default_resource(|r| {
                 // 404 for GET request
                 r.method(Method::GET).f(p404);
-
-                // all requests that are not GET
-                //r.route().filter(pred::Not(pred::Get())).f(
-                //    |req| HttpResponse::MethodNotAllowed());
             }))
     .bind("127.0.0.1:8080").expect("Can not bind to 127.0.0.1:8080")
     .shutdown_timeout(0)
@@ -276,7 +226,7 @@ fn main() {
 
             let alive = ALIVE.lock().unwrap();
             let alive = alive.get(&String::from("alive")).unwrap();
-            if(!alive) {
+            if !alive {
                 break;
             }
         }
@@ -286,7 +236,6 @@ fn main() {
     println!("starting server");
     let _ = sys.run();
     println!("bye bye now");
-
 
    ALIVE.lock().unwrap().insert(String::from("alive"), false);
 }
