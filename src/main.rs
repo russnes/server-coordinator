@@ -25,6 +25,9 @@ use std::sync::Mutex;
 use std::collections::HashMap;
 use std::{env, io};
 
+use std::io::prelude::*;
+use std::net::{TcpStream, Shutdown};
+
 #[derive(Debug, Serialize, Deserialize)]
 struct MyObj {
         name: String,
@@ -105,7 +108,13 @@ fn json_endpoint(
                 if(was_ok) {
                     response_string = String::from("thanks for the server!");
                     if(server_name_json.is_string()) {
-                        add_server(address, server_name_json.to_string())
+                        let connection_result = test_connection(&address);
+                        if(connection_result) {
+                            add_server(address, server_name_json.to_string())
+                        } else {
+                            let json_error_name: Value = serde_json::from_str("{\"err\":\"can't connect\"}").unwrap();
+                            response_string = json_error_name.to_string();
+                        }
                     } else {
                         let json_error_name: Value = serde_json::from_str("{\"err\":\"name is not string\"}").unwrap();
                         response_string = json_error_name.to_string();
@@ -120,6 +129,18 @@ fn json_endpoint(
                 .body(response_string))
             })
         .responder()
+}
+
+fn test_connection(address: &String) -> bool {
+    let mut address_with_port = address.clone();
+    address_with_port.push_str(":4476");
+    let stream = TcpStream::connect(address_with_port);
+    if let Ok(stream) = stream {
+        stream.shutdown(Shutdown::Both).expect("shutdown call failed");
+        true
+    } else {
+        false
+    }
 }
 
 fn parse_server_name_from_json(json: &JsonValue) -> Value {
