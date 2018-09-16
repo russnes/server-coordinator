@@ -33,6 +33,7 @@ lazy_static! {
 }
 
 fn add_server(addr: String, name: String) {
+    let name = str::replace(&name, "\"", "");
    SERVERS.lock().unwrap().insert(addr, name);
 }
 
