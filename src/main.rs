@@ -1,15 +1,12 @@
 #[macro_use]
 extern crate lazy_static;
-
 extern crate actix;
 extern crate actix_web;
 extern crate env_logger;
 extern crate serde_json;
 extern crate futures;
-
 #[macro_use]
 extern crate serde_derive;
-
 #[macro_use]
 extern crate json;
 use actix_web::http::{Method, StatusCode};
@@ -17,13 +14,11 @@ use actix_web::{
     fs, middleware, server, App, Error, HttpRequest, HttpResponse, Result, HttpMessage, AsyncResponder
 };
 use futures::{Future, Stream};
-
 use serde_json::Value;
 use json::JsonValue;
 use std::sync::Mutex;
 use std::collections::HashMap;
 use std::{env, thread, time};
-
 use std::net::{TcpStream, Shutdown};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -68,7 +63,7 @@ fn make_json_string_of_servers() -> String {
    server_json_string
 }
 
-/// This handler manually load request payload and parse json-rust
+/// This handler manually loads request payload and parses json-rust
 fn json_endpoint(
     req: &HttpRequest,
 ) -> Box<Future<Item = HttpResponse, Error = Error>> {
@@ -142,11 +137,11 @@ fn test_connection(address: &String) -> bool {
 }
 
 fn parse_server_name_from_json(json: &JsonValue) -> Value {
-    let json_string = json.dump();
-    let json_value: Value = serde_json::from_str(&json_string).unwrap();
     let json_error_addserver: Value = serde_json::from_str("{\"err\":\"missing addserver\"}").unwrap();
     let json_error_name: Value = serde_json::from_str("{\"err\":\"missing name\"}").unwrap();
 
+    let json_string = json.dump();
+    let json_value: Value = serde_json::from_str(&json_string).unwrap();
     let add_server_json_object = json_value.get("addserver");
 
     let mut error = false;
@@ -187,7 +182,7 @@ fn p404(req: &HttpRequest) -> Result<fs::NamedFile> {
 fn index(req: &HttpRequest) -> HttpResponse {
     let servers_string: String = make_json_string_of_servers();
     HttpResponse::Ok()
-        .content_type("text/plain")
+        .content_type("application/json")
         .body(servers_string)
 }
 
