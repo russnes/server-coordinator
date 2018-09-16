@@ -17,16 +17,21 @@ use actix_web::middleware::session::{self, RequestSession};
 use actix_web::{
     error, fs, middleware, pred, server, App, Error, HttpRequest, HttpResponse, Path, Result, Json, HttpMessage, AsyncResponder
 };
-use futures::{Future, Stream};
+use futures::{Future, Stream, Sink};
+//use futures::sync::mpsc::{Sender, channel};
+
+use std::sync::mpsc::{Sender, Receiver, channel};
 
 use serde_json::{from_str, Value};
 use json::JsonValue;
 use std::sync::Mutex;
 use std::collections::HashMap;
-use std::{env, io};
+use std::{env, io, thread, time};
 
+use std::io::BufRead;
 use std::io::prelude::*;
 use std::net::{TcpStream, Shutdown};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct MyObj {
@@ -38,6 +43,7 @@ const MAX_SIZE: usize = 262_144; // max payload size is 256k
 
 lazy_static! {
     static ref SERVERS: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
+    static ref ALIVE: Mutex<HashMap<String, bool>> = Mutex::new(HashMap::new());
 }
 
 fn add_server(addr: String, name: String) {
@@ -46,6 +52,11 @@ fn add_server(addr: String, name: String) {
 
 fn get_servers() -> HashMap<String, String> {
    SERVERS.lock().unwrap().clone()
+}
+
+fn clear_servers() {
+    SERVERS.lock().unwrap().clear();
+    println!("clearing servers!");
 }
 
 fn make_json_string_of_servers() -> String {
@@ -63,10 +74,7 @@ fn make_json_string_of_servers() -> String {
        }
        i = i + 1;
    }
-   println!("{}", server_map.len());
    server_json_string.push('}');
-
-   //println!("{}", server_json_string);
    server_json_string
 }
 
@@ -244,8 +252,8 @@ fn main() {
 
             .resource("/json", |r| r.method(Method::POST).f(json_endpoint))
             
-            .resource("/welcome", |r| r.f(welcome))
-            .resource("/user/{name}", |r| r.method(Method::GET).f(with_param))
+            //.resource("/welcome", |r| r.f(welcome))
+            //.resource("/user/{name}", |r| r.method(Method::GET).f(with_param))
 
             .default_resource(|r| {
                 // 404 for GET request
@@ -259,6 +267,26 @@ fn main() {
     .shutdown_timeout(0)
     .start();
 
+   ALIVE.lock().unwrap().insert(String::from("alive"), true);
+
+   thread::spawn(|| {
+        loop {
+            thread::sleep(time::Duration::from_millis(20000));
+            clear_servers();
+
+            let alive = ALIVE.lock().unwrap();
+            let alive = alive.get(&String::from("alive")).unwrap();
+            if(!alive) {
+                break;
+            }
+        }
+            println!("thread is dead");
+    });
+
     println!("starting server");
     let _ = sys.run();
+    println!("bye bye now");
+
+
+   ALIVE.lock().unwrap().insert(String::from("alive"), false);
 }
