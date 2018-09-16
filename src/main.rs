@@ -192,7 +192,7 @@ fn index(req: &HttpRequest) -> HttpResponse {
 }
 
 fn main() {
-    env::set_var("RUST_LOG", "actix_web=debug");
+    env::set_var("RUST_LOG", "actix_web=info");
     env::set_var("RUST_BACKTRACE", "1");
     env_logger::init();
     let sys = actix::System::new("server-manager-rust");
@@ -230,12 +230,11 @@ fn main() {
                 break;
             }
         }
-            println!("thread is dead");
     });
 
     println!("starting server");
     let _ = sys.run();
     println!("bye bye now");
 
-   ALIVE.lock().unwrap().insert(String::from("alive"), false);
+    ALIVE.lock().unwrap().insert(String::from("alive"), false);
 }
