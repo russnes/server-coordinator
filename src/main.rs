@@ -99,21 +99,25 @@ fn json_endpoint(
                         }
                 };
                 if was_ok {
-                    response_string = String::from("thanks for the server!");
+                    //response_string = String::from("thanks for the server!");
+                    response_string = String::from("OK");
                     if server_name_json.is_string() {
                         let connection_result = test_connection(&address);
                         if connection_result {
                             add_server(address, server_name_json.to_string())
                         } else {
-                            let json_error_name: Value = serde_json::from_str("{\"err\":\"can't connect\"}").unwrap();
-                            response_string = json_error_name.to_string();
+                            //let json_error_name: Value = serde_json::from_str("{\"err\":\"can't connect\"}").unwrap();
+                            //response_string = json_error_name.to_string();
+                            response_string = String::from("NOT OK");
                         }
                     } else {
-                        let json_error_name: Value = serde_json::from_str("{\"err\":\"name is not string\"}").unwrap();
-                        response_string = json_error_name.to_string();
+                        //let json_error_name: Value = serde_json::from_str("{\"err\":\"name is not string\"}").unwrap();
+                        //response_string = json_error_name.to_string();
+                        response_string = String::from("NOT OK");
                     }
                 } else {
-                    response_string = server_name_json_with_possible_error.to_string();
+                    //response_string = server_name_json_with_possible_error.to_string();
+                    response_string = String::from("NOT OK");
                 }
             }
 
@@ -214,7 +218,7 @@ fn main() {
                 // 404 for GET request
                 r.method(Method::GET).f(p404);
             }))
-    .bind("127.0.0.1:8080").expect("Can not bind to 127.0.0.1:8080")
+    .bind("0.0.0.0:8080").expect("Can not bind to 0.0.0.0:8080")
     .shutdown_timeout(0)
     .start();
 
@@ -233,7 +237,7 @@ fn main() {
         }
     });
 
-    println!("starting server");
+    println!("starting server 0.0.0.0:8080");
     let _ = sys.run();
     println!("bye bye now");
 
