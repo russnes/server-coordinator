@@ -106,12 +106,10 @@ fn json_endpoint(
                         if connection_result {
                             add_server(address, server_name_json.to_string())
                         } else {
-                            let json_error_name: Value = serde_json::from_str("{\"err\":\"can't connect\"}").unwrap();
-                            response_string = json_error_name.to_string();
+                            response_string = String::from("{\"err\":\"can't connect\"}");
                         }
                     } else {
-                        let json_error_name: Value = serde_json::from_str("{\"err\":\"name is not string\"}").unwrap();
-                        response_string = json_error_name.to_string();
+                        response_string = String::from("{\"err\":\"name is not string\"}");
                     }
                 } else {
                     response_string = server_name_json_with_possible_error.to_string();
