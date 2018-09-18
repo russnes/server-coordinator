@@ -156,7 +156,7 @@ fn parse_server_name_from_json(json: &JsonValue) -> Value {
     if !error {
         let name_json = add_server_json_object.get("name");
         result_json = match name_json {
-            Some(v) => add_server_json_object,
+            Some(_v) => add_server_json_object,
             None => &json_error_name
         };
     }
@@ -174,7 +174,7 @@ fn parse_address_from_request(req: &HttpRequest) -> String {
     String::from(address)
 }
 
-fn p404(req: &HttpRequest) -> Result<fs::NamedFile> {
+fn p404(_req: &HttpRequest) -> Result<fs::NamedFile> {
         Ok(fs::NamedFile::open("static/404.html")?.set_status_code(StatusCode::NOT_FOUND))
 }
 
