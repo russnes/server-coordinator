@@ -3,11 +3,13 @@ env:
   - OS_TYPE=centos OS_VERSION=7
 
 deploy:
-  provider: pages
+  provider: releases
   skip_cleanup: true
   github_token: $GITHUB_TOKEN  # Set in the settings page of your repository, as a secure variable
   keep_history: true
+  file: server-coordinator
   on:
+    repo: simernes/server-coordinator
     branch: master
 
 language: rust
