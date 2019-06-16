@@ -1,24 +1,73 @@
+#os:
+# - centos
 env:
-  matrix:
   - OS_TYPE=centos OS_VERSION=7
-
-deploy:
-  provider: releases
-  skip_cleanup: true
-  github_token: $GITHUB_TOKEN  # Set in the settings page of your repository, as a secure variable
-  keep_history: true
-  file: server-coordinator
-  on:
-    repo: simernes/server-coordinator
-    branch: master
-
 language: rust
 rust:
-  - stable
-  - beta
-  - nightly
+- nightly
+cache: 
+- apt
 matrix:
-  allow_failures:
-    - rust: nightly
-  fast_finish: true
-cache: cargo
+  include:
+    - env:
+        - NAME=server-coordinator
+        - TARGET=arm-unknown-linux-gnueabihf
+        - LINKER=arm-linux-gnueabihf-gcc
+        - PACKAGE=$NAME-rpi2.tar.gz
+      addons:
+        apt:
+          packages: &armhf
+            - gcc-arm-linux-gnueabihf
+            - libc6-armhf-cross
+            - libc6-dev-armhf-cross
+    - env:
+        - NAME=server-coordinator
+        - TARGET=armv7-unknown-linux-gnueabihf
+        - LINKER=arm-linux-gnueabihf-gcc
+        - PACKAGE=$NAME-rpi3.tar.gz
+      addons:
+        apt:
+          packages: *armhf
+    - env:
+        - NAME=server-coordinator
+        - TARGET=i686-unknown-linux-gnu
+        - PACKAGE=$NAME-i686.tar.gz
+      addons:
+        apt:
+          packages:
+            - gcc-multilib
+    - env:
+        - NAME=server-coordinator
+        - TARGET=x86_64-unknown-linux-gnu
+        - PACKAGE=$NAME-x86_64.tar.gz
+
+install:
+  - export PATH="$PATH:$HOME/.cargo/bin"
+  - rustup target add $TARGET || true
+  - |
+    if [ -n "$LINKER" ]; then
+      mkdir -p ~/.cargo
+      echo >> ~/.cargo/config
+      echo "[target.$TARGET]" >> ~/.cargo/config
+      echo "linker = \"$LINKER\"" >> ~/.cargo/config
+    fi
+script:
+  - |
+    if [ $TARGET = "x86_64-unknown-linux-gnu" ]; then
+      cargo test
+    fi
+  - cargo build --target $TARGET --verbose --release
+
+before_deploy:
+  - tar -czf $PACKAGE -C target/$TARGET/release/ $NAME
+
+deploy:
+deploy:
+  provider: releases
+  api_key:
+    secure: $GITHUB_TOKEN
+  file: ${PACKAGE}
+  skip_cleanup: true
+  on:
+    tags: true
+repo: simernes/server-coordinator
