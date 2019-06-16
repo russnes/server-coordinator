@@ -2,6 +2,14 @@ env:
   matrix:
   - OS_TYPE=centos OS_VERSION=7
 
+deploy:
+  provider: pages
+  skip_cleanup: true
+  github_token: $GITHUB_TOKEN  # Set in the settings page of your repository, as a secure variable
+  keep_history: true
+  on:
+    branch: master
+
 language: rust
 rust:
   - stable
